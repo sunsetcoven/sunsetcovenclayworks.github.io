@@ -1,2 +1,2 @@
 # sunsetcovenclayworks.github.io
-Clay Works and Art Portfolio
+Welcome to Sunset Coven Clayworks! Where creativity meets craftsmanship! 
