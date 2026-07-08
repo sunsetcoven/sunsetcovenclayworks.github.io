@@ -695,6 +695,11 @@ const DEFAULTS = {
     eventsIntro: "Come find me at markets, art fairs, and shows. I bring a rotating selection of studio work — always a few things you won't find anywhere else.",
     eventsEmpty: "No upcoming events yet — check back soon."
   },
+  payments: {
+    venmoUser: "",       // e.g. "SunsetCovenClay" (no @)
+    paypalUser: "",      // your PayPal.me name, e.g. "sunsetcovenclay"
+    note: "After paying, you'll receive a confirmation email. Questions? Email us anytime."
+  },
   adminPassword: "clay"   // change this in the Settings tab
 };
 /*DEFAULTS_END*/
@@ -803,6 +808,18 @@ function renderBookingModal(){
     el.innerHTML = `<div class="success-msg">&#10022; You're booked!<br><span style="font-size:1rem;color:var(--mist);font-family:'Jost',sans-serif;">Check your email for confirmation details.</span></div>`;
   } else {
     const c=bookingClass;
+    const pay = data.payments || {};
+    // Build available payment buttons
+    let payBtns = '';
+    if (c.payStripe) payBtns += `<a href="${esc(c.payStripe)}" target="_blank" rel="noopener" class="btn btn-solid" style="display:block;text-align:center;text-decoration:none;margin-bottom:0.6rem;">Pay with Card &nbsp;·&nbsp; $${esc(c.price)}</a>`;
+    const paypalLink = c.payPaypal || (pay.paypalUser ? `https://www.paypal.com/paypalme/${encodeURIComponent(pay.paypalUser)}/${esc(c.price)}` : '');
+    if (paypalLink) payBtns += `<a href="${esc(paypalLink)}" target="_blank" rel="noopener" class="btn" style="display:block;text-align:center;text-decoration:none;margin-bottom:0.6rem;">Pay with PayPal</a>`;
+    if (pay.venmoUser) payBtns += `<a href="https://venmo.com/u/${encodeURIComponent(pay.venmoUser)}" target="_blank" rel="noopener" class="btn" style="display:block;text-align:center;text-decoration:none;margin-bottom:0.6rem;">Pay with Venmo</a>`;
+
+    const payArea = payBtns
+      ? `<div style="margin-top:1.25rem;">${payBtns}<div style="font-size:0.72rem;color:var(--mist);line-height:1.6;margin-top:0.75rem;">${esc(pay.note||'')}</div></div>`
+      : `<div style="margin-top:1.25rem;padding:1.1rem;border:1px solid rgba(138,171,142,0.2);font-size:0.82rem;color:var(--mist);line-height:1.7;">Online payment isn't set up yet. Fill in your details above and we'll reach out to confirm your spot and arrange payment.</div>`;
+
     el.innerHTML = `
       <div class="modal-title">${esc(c.name)}</div>
       <div class="modal-sub">${esc(c.duration)} · ${esc(c.level)} · $${esc(c.price)} per person</div>
@@ -811,11 +828,8 @@ function renderBookingModal(){
         <div class="form-group"><label>Email</label><input type="email" placeholder="your@email.com"/></div>
         <div class="form-group"><label>Preferred Date</label><input type="date"/></div>
         <div class="form-group"><label>Questions or Notes</label><textarea placeholder="Anything we should know?"></textarea></div>
-        <div style="display:flex;align-items:center;justify-content:space-between;">
-          <div style="font-family:'Cormorant Garamond',serif;font-size:1.8rem;color:var(--white);">$${esc(c.price)}</div>
-          <button class="btn btn-solid" onclick="confirmBooking()">Confirm &amp; Pay</button>
-        </div>
-      </div>`;
+      </div>
+      ${payArea}`;
   }
 }
 
@@ -1073,7 +1087,7 @@ function renderAdmin(){
     </div></div></div>`;
   }
 
-  const tabs=['Home','Contact','Classes','Gallery','About','Policies','Events','Settings'];
+  const tabs=['Home','Contact','Classes','Gallery','About','Policies','Events','Payments','Settings'];
   const tabBar=tabs.map(t=>`<button class="admin-tab ${adminTab===t?'active':''}" onclick="setAdminTab('${t}')">${t}</button>`).join('');
 
   let body='';
@@ -1084,13 +1098,15 @@ function renderAdmin(){
   else if(adminTab==='About') body=adminAbout();
   else if(adminTab==='Policies') body=adminPolicies();
   else if(adminTab==='Events') body=adminEvents();
+  else if(adminTab==='Payments') body=adminPayments();
   else if(adminTab==='Settings') body=adminSettings();
 
   return `<div class="page">
     <div class="admin-bar">
       <div class="admin-bar-title">Studio <span>Admin</span></div>
       <div class="admin-actions">
-        <button class="btn-sm" onclick="publishSite()" style="background:var(--accent);color:var(--black);font-weight:500;">⬇ Publish / Download Site</button>
+        <button class="btn-sm" onclick="publishToGitHub()" style="background:var(--accent);color:var(--black);font-weight:600;">🚀 Publish to Live Site</button>
+        <button class="btn-sm" onclick="publishSite()">⬇ Download Site File</button>
         <button class="btn-sm" onclick="goTo('Home')">View Site ↗</button>
         <button class="btn-sm" onclick="exportData()">Export Backup</button>
         <button class="btn-sm" onclick="document.getElementById('importFile').click()">Import Backup</button>
@@ -1100,7 +1116,7 @@ function renderAdmin(){
     <div class="admin-tabs">${tabBar}</div>
     <div class="admin-body">
       ${storageAvailable()
-        ? `<div class="admin-note"><strong style="color:var(--accent);">To make your changes LIVE for visitors:</strong> edit here, then click <strong>⬇ Publish / Download Site</strong> up top. That downloads your whole site as one file — upload it to your web host (replacing the old one) and your changes go live for everyone. <br><br>Your edits are also auto-saved in <em>this</em> browser as you work, so you won't lose them between sessions. Use <strong>Export Backup</strong> for a separate content-only backup.</div>`
+        ? `<div class="admin-note"><strong style="color:var(--accent);">To make changes LIVE for everyone:</strong> edit anything here, then click <strong>🚀 Publish to Live Site</strong> at the top. Your site updates on the web automatically in about a minute — no file uploads needed. <br><br>(First time only: add your GitHub details in the <strong>Settings</strong> tab so the button knows where to publish.) Your edits also auto-save in this browser as you work.</div>`
         : `<div class="admin-note" style="border-color:#c97;background:rgba(180,120,90,0.12);"><strong style="color:#e0a877;">⚠ You're viewing this in preview mode — changes won't be saved.</strong><br>To use the admin for real: <strong>download this file</strong> (or open it directly), then open it in your browser. In a preview window, storage and photo uploads are blocked. You can still look around, but use the downloaded file to actually edit and save.</div>`}
       ${body}
     </div>
@@ -1161,6 +1177,10 @@ function adminClasses(){
         <div class="admin-field"><label>Next Date</label><input value="${esc(c.nextDate)}" oninput="onField('classes.${i}.nextDate',this)"/></div>
       </div>
       <div class="admin-field" style="max-width:200px;"><label>Price ($)</label><input type="number" value="${esc(c.price)}" oninput="data.classes[${i}].price=Number(this.value)||0"/></div>
+      <div class="admin-row2">
+        <div class="admin-field"><label>Stripe Payment Link (card payments)</label><input value="${esc(c.payStripe||'')}" placeholder="https://buy.stripe.com/..." oninput="onField('classes.${i}.payStripe',this)"/></div>
+        <div class="admin-field"><label>PayPal link (optional — overrides default)</label><input value="${esc(c.payPaypal||'')}" placeholder="https://www.paypal.com/paypalme/..." oninput="onField('classes.${i}.payPaypal',this)"/></div>
+      </div>
     </div>`).join('');
   return `<div class="admin-section-head">Classes &amp; Workshops</div>
     <div class="admin-section-sub">Edit the page header, then add, edit, remove, or reprice the offerings on your booking page.</div>
@@ -1356,6 +1376,35 @@ function addAdminEvent(){ data.events.push({id:Date.now(),month:'',day:'',year:'
 function delAdminEvent(i){ if(confirm('Delete this event?')){ data.events.splice(i,1); adminSave(true); render(); } }
 
 // ─── Settings tab ───
+function adminPayments(){
+  const p = data.payments || {};
+  const classLinks = data.classes.map((c,i)=>`
+    <div class="admin-card">
+      <div class="admin-card-title" style="margin-bottom:1rem;">${esc(c.name)} — $${esc(c.price)}</div>
+      <div class="admin-row2">
+        <div class="admin-field"><label>Stripe Payment Link</label><input value="${esc(c.payStripe||'')}" placeholder="https://buy.stripe.com/..." oninput="onField('classes.${i}.payStripe',this)"/></div>
+        <div class="admin-field"><label>PayPal link (optional)</label><input value="${esc(c.payPaypal||'')}" placeholder="https://www.paypal.com/paypalme/..." oninput="onField('classes.${i}.payPaypal',this)"/></div>
+      </div>
+    </div>`).join('');
+  return `<div class="admin-section-head">Payments</div>
+    <div class="admin-section-sub">Connect real checkout to your class buttons. Customers pay on Stripe's or PayPal's secure page — no card details ever touch your site.</div>
+    <div class="admin-note">
+      <strong style="color:var(--accent);">How to set this up (one time):</strong><br>
+      <strong>Cards (Stripe):</strong> make a free account at stripe.com → Product catalog → create a <em>Payment Link</em> for each class → paste the link below.<br>
+      <strong>PayPal &amp; Venmo:</strong> enter your PayPal.me name and Venmo username below. (Venmo shows up automatically inside PayPal checkout for many U.S. accounts, and the Venmo button opens your Venmo profile.)
+    </div>
+    <div class="admin-section-head" style="font-size:1.3rem;">PayPal &amp; Venmo (used for all classes)</div>
+    <div class="admin-row2">
+      <div class="admin-field"><label>PayPal.me username</label><input value="${esc(p.paypalUser||'')}" placeholder="sunsetcovenclay" oninput="onField('payments.paypalUser',this)"/></div>
+      <div class="admin-field"><label>Venmo username (no @)</label><input value="${esc(p.venmoUser||'')}" placeholder="SunsetCovenClay" oninput="onField('payments.venmoUser',this)"/></div>
+    </div>
+    <div class="admin-field"><label>Note shown under the payment buttons</label><textarea oninput="onField('payments.note',this)">${esc(p.note||'')}</textarea></div>
+    <div class="admin-section-head" style="font-size:1.3rem;margin-top:1rem;">Stripe Card Links (per class)</div>
+    <div class="admin-section-sub">Paste each class's Stripe Payment Link so the "Pay with Card" button works.</div>
+    ${classLinks}
+    <button class="btn btn-solid" onclick="adminSave()">Save Changes</button>`;
+}
+
 function adminSettings(){
   return `<div class="admin-section-head">Settings</div>
     <div class="admin-section-sub">Site name, password, backups, and reset.</div>
@@ -1367,7 +1416,31 @@ function adminSettings(){
     <div class="admin-field" style="max-width:320px;"><label>Admin password</label><input value="${esc(data.adminPassword)}" oninput="onField('adminPassword',this)"/></div>
     <button class="btn btn-solid" onclick="adminSave()">Save Changes</button>
     <div class="admin-note" style="margin-top:2.5rem;"><strong>Heads up:</strong> the password only keeps casual visitors out — it isn't strong security, since anyone who downloads the page could read it. For a real public site, ask your web host about proper password protection.</div>
-    <div class="admin-section-head" style="font-size:1.3rem;">Backups</div>
+
+    <div class="admin-section-head" style="font-size:1.3rem;">🚀 Go Live — Publish to GitHub</div>
+    <div class="admin-section-sub">Fill this in once, and the "Publish to Live Site" button will push your changes to the web automatically.</div>
+    <div class="admin-note">
+      <strong style="color:var(--accent);">One-time setup:</strong><br>
+      1. On GitHub, go to <em>Settings → Developer settings → Personal access tokens → Fine-grained tokens → Generate new token</em>.<br>
+      2. Give it access to <em>only</em> your website repository, with <strong>Repository permissions → Contents → Read and write</strong>.<br>
+      3. Copy the token and paste it below along with your repo details, then click <strong>Save GitHub Settings</strong>.<br>
+      <span style="color:#e0a877;">Your token is stored only in this browser — it's never included in the published site file.</span>
+    </div>
+    <div class="admin-row2">
+      <div class="admin-field"><label>GitHub username / owner</label><input id="ghOwner" value="${esc(ghConfig().owner||'')}" placeholder="your-github-username"/></div>
+      <div class="admin-field"><label>Repository name</label><input id="ghRepo" value="${esc(ghConfig().repo||'')}" placeholder="my-website"/></div>
+    </div>
+    <div class="admin-row2">
+      <div class="admin-field"><label>Branch</label><input id="ghBranch" value="${esc(ghConfig().branch||'main')}" placeholder="main"/></div>
+      <div class="admin-field"><label>File path</label><input id="ghPath" value="${esc(ghConfig().path||'index.html')}" placeholder="index.html"/></div>
+    </div>
+    <div class="admin-field"><label>Access token</label><input id="ghToken" type="password" value="${esc(ghConfig().token||'')}" placeholder="github_pat_..."/></div>
+    <div style="display:flex;gap:0.75rem;flex-wrap:wrap;">
+      <button class="btn btn-solid" onclick="saveGhFromForm()">Save GitHub Settings</button>
+      <button class="btn-sm" onclick="publishToGitHub()">Test Publish Now</button>
+    </div>
+
+    <div class="admin-section-head" style="font-size:1.3rem;margin-top:2.5rem;">Backups</div>
     <div class="admin-section-sub">Download all your content as a file, or restore from one.</div>
     <div style="display:flex;gap:0.75rem;flex-wrap:wrap;">
       <button class="btn-sm" onclick="exportData()">Export Backup</button>
@@ -1377,25 +1450,83 @@ function adminSettings(){
 }
 
 // ─── Publish: download a fresh site file with all edits baked in ───
-function publishSite(){
-  // Clone the current page's full HTML
+// Build the full standalone HTML with current content baked in as new defaults
+function generateSiteHTML(){
   const root = document.documentElement.cloneNode(true);
-  // Blank out dynamic containers so we ship a clean file
   const app = root.querySelector('#app'); if(app) app.innerHTML='';
   const nl = root.querySelector('#navLinks'); if(nl) nl.innerHTML='';
   const mm = root.querySelector('#mobileMenu'); if(mm) mm.innerHTML='';
   let html = '<!DOCTYPE html>\n' + root.outerHTML;
-  // Bake current content in as the new defaults
-  const json = JSON.stringify(data, null, 2);
+  const json = JSON.stringify(data, null, 2);   // token is NOT in `data`, so it never ships
   html = html.replace(/\/\*GALLERY_START\*\/[\s\S]*?\/\*GALLERY_END\*\//,
     '/*GALLERY_START*/\nconst GALLERY_DEFAULT = [];\n/*GALLERY_END*/');
   html = html.replace(/\/\*DEFAULTS_START\*\/[\s\S]*?\/\*DEFAULTS_END\*\//,
     '/*DEFAULTS_START*/\nconst DEFAULTS = ' + json + ';\n/*DEFAULTS_END*/');
-  // Download
+  return html;
+}
+
+function publishSite(){
+  const html = generateSiteHTML();
   const blob = new Blob([html], {type:'text/html'});
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
-  a.download = 'sunset-coven-clayworks.html'; a.click(); URL.revokeObjectURL(a.href);
+  a.download = 'index.html'; a.click(); URL.revokeObjectURL(a.href);
   toast('Site file downloaded ✓');
+}
+
+// ─── One-button publish straight to GitHub Pages ───
+const GH_KEY = 'scGithubConfig';   // stored only in THIS browser, never in the site file
+function ghConfig(){
+  try { return JSON.parse(localStorage.getItem(GH_KEY)||'{}'); } catch(e){ return {}; }
+}
+function saveGhConfig(cfg){
+  try { localStorage.setItem(GH_KEY, JSON.stringify(cfg)); } catch(e){}
+}
+function saveGhFromForm(){
+  const g = id => (document.getElementById(id)||{}).value || '';
+  saveGhConfig({ owner:g('ghOwner').trim(), repo:g('ghRepo').trim(), branch:g('ghBranch').trim()||'main', path:g('ghPath').trim()||'index.html', token:g('ghToken').trim() });
+  toast('GitHub settings saved ✓');
+}
+function b64utf8(str){
+  // UTF-8 safe base64 for the GitHub API
+  return btoa(unescape(encodeURIComponent(str)));
+}
+async function publishToGitHub(){
+  const cfg = ghConfig();
+  if(!cfg.owner || !cfg.repo || !cfg.token){
+    toast('Add your GitHub details in Settings first');
+    setAdminTab('Settings'); return;
+  }
+  const branch = cfg.branch || 'main';
+  const path = cfg.path || 'index.html';
+  const api = `https://api.github.com/repos/${cfg.owner}/${cfg.repo}/contents/${path}`;
+  const headers = { 'Authorization': 'Bearer ' + cfg.token, 'Accept': 'application/vnd.github+json' };
+  toast('Publishing to GitHub…');
+  try {
+    // get current file SHA (needed to update an existing file)
+    let sha = undefined;
+    const getRes = await fetch(`${api}?ref=${encodeURIComponent(branch)}`, { headers });
+    if(getRes.ok){ const j = await getRes.json(); sha = j.sha; }
+    else if(getRes.status !== 404){
+      const t = await getRes.text();
+      toast('GitHub error ' + getRes.status + ' — check your details'); console.error(t); return;
+    }
+    const body = {
+      message: 'Update site via admin ' + new Date().toISOString(),
+      content: b64utf8(generateSiteHTML()),
+      branch: branch
+    };
+    if(sha) body.sha = sha;
+    const putRes = await fetch(api, { method:'PUT', headers, body: JSON.stringify(body) });
+    if(putRes.ok){ toast('✓ Published! Live in about a minute.'); }
+    else {
+      const t = await putRes.text();
+      console.error(t);
+      toast('Publish failed (' + putRes.status + ') — check token permissions');
+    }
+  } catch(err){
+    console.error(err);
+    toast('Network error — check connection & details');
+  }
 }
 
 // ─── Backup / restore ───
